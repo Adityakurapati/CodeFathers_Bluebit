@@ -79,7 +79,7 @@ export default function Header() {
                                                         initial="rest"
                                                         whileHover="hover"
                                                         whileTap="tap"
-                                                        className={`flex h-9 w-9 items-center justify-center rounded-full bg-slate-700 text-white transition-colors duration-300 ${bellActive ? 'bg-blue-600' : 'bg-slate-700'}`}
+                                                        className={`flex h-9 w-9 items-center justify-center rounded-full text-white transition-colors duration-300 ${bellActive ? 'bg-blue-600' : 'bg-slate-700'}`}
                                                         onClick={() => setBellActive(!bellActive)}
                                                 >
                                                         <Bell className="h-5 w-5" />
@@ -89,7 +89,7 @@ export default function Header() {
                                                         initial="rest"
                                                         whileHover="hover"
                                                         whileTap="tap"
-                                                        className={`flex h-9 w-9 items-center justify-center rounded-full bg-slate-700 text-white transition-colors duration-300 ${userActive ? 'bg-green-600' : 'bg-slate-700'}`}
+                                                        className={`flex h-9 w-9 items-center justify-center rounded-full text-white transition-colors duration-300 ${userActive ? 'bg-green-600' : 'bg-slate-700'}`}
                                                         onClick={() => setUserActive(!userActive)}
                                                 >
                                                         <User className="h-5 w-5" />
