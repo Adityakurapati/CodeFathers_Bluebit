@@ -1,5 +1,7 @@
 # Crowdsourced Disaster Relief Platform🌍🚨  
 *Real-Time Crowdsourced Disaster Management Platform*  
+**Deployemnt URL -**  
+[text](https://code-fathers-bluebit-adityakurapatis-projects.vercel.app/)
 **Next.js · Leaflet · Firebase**  
 
 ---
