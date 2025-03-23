@@ -1,13 +1,147 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { AlertCircle, Navigation, Mic, X, Camera, MapPin, Send } from "lucide-react"
+import React from 'react'
 
-export default function EmergencyActions({ showEvacuationRoute = false, setShowEvacuationRoute }) {
+// Extend Window interface for WebKit types
+declare global {
+        interface Window {
+                webkitSpeechRecognition: any
+        }
+}
+
+interface EmergencyActionsProps {
+        showEvacuationRoute?: boolean
+        setShowEvacuationRoute: (show: boolean) => void
+}
+
+export default function EmergencyActions({
+        showEvacuationRoute = false,
+        setShowEvacuationRoute
+}: EmergencyActionsProps) {
         const [sosModalOpen, setSosModalOpen] = useState(false)
         const [voiceCommandActive, setVoiceCommandActive] = useState(false)
+        const [voiceCommand, setVoiceCommand] = useState("")
+        const [voiceCommandFeedback, setVoiceCommandFeedback] = useState("")
+        const [listening, setListening] = useState(false)
 
+        // Voice command handling remains the same
+        const executeVoiceCommand = (command: string) => {
+                const cmd = command.toLowerCase().trim()
+                setVoiceCommandFeedback("")
+
+                if (cmd.includes("evacuation") || cmd.includes("route") || cmd.includes("escape")) {
+                        if (cmd.includes("show") || cmd.includes("display") || cmd.includes("find") || cmd.includes("get")) {
+                                setShowEvacuationRoute(true)
+                                setVoiceCommandFeedback("Showing evacuation route")
+                                return true
+                        } else if (cmd.includes("hide") || cmd.includes("remove") || cmd.includes("clear")) {
+                                setShowEvacuationRoute(false)
+                                setVoiceCommandFeedback("Hiding evacuation route")
+                                return true
+                        }
+                }
+
+                if ((cmd.includes("sos") || cmd.includes("emergency") || cmd.includes("help")) &&
+                        (cmd.includes("send") || cmd.includes("call") || cmd.includes("report"))) {
+                        setSosModalOpen(true)
+                        setVoiceCommandFeedback("Opening SOS emergency form")
+                        return true
+                }
+
+                const disasterTypes = ["fire", "flood", "earthquake", "medical", "trapped"]
+                for (const type of disasterTypes) {
+                        if (cmd.includes(type) && (cmd.includes("report") || cmd.includes("alert"))) {
+                                setSosModalOpen(true)
+                                setVoiceCommandFeedback(`Reporting ${type} emergency`)
+                                return true
+                        }
+                }
+
+                if (cmd.includes("cancel") || cmd.includes("close") || cmd.includes("exit")) {
+                        setVoiceCommandActive(false)
+                        return true
+                }
+
+                setVoiceCommandFeedback("Command not recognized. Try 'show evacuation route', 'report fire', or 'send SOS'")
+                return false
+        }
+
+        const handleCommandSubmit = (e: React.FormEvent) => {
+                e.preventDefault()
+                if (voiceCommand.trim()) {
+                        executeVoiceCommand(voiceCommand)
+                        setVoiceCommand("")
+                }
+        }
+
+        useEffect(() => {
+                if (!voiceCommandActive) return
+
+                let recognition: any = null
+
+                // Explicitly use WebKit speech recognition
+                if (typeof window !== 'undefined' && 'webkitSpeechRecognition' in window) {
+                        recognition = new window.webkitSpeechRecognition()
+
+                        recognition.continuous = false
+                        recognition.interimResults = false
+                        recognition.lang = 'en-US'
+
+                        recognition.onstart = () => {
+                                setListening(true)
+                                setVoiceCommandFeedback("Listening...")
+                        }
+
+                        recognition.onresult = (event: any) => {
+                                const transcript = event.results[0][0].transcript
+                                setVoiceCommand(transcript)
+                                executeVoiceCommand(transcript)
+                        }
+
+                        recognition.onerror = (event: any) => {
+                                console.error('WebKit speech recognition error:', event.error)
+                                setListening(false)
+                                setVoiceCommandFeedback(`Error: ${event.error}. Try typing your command instead.`)
+                        }
+
+                        recognition.onend = () => {
+                                setListening(false)
+                                if (voiceCommandActive) {
+                                        setTimeout(() => {
+                                                try {
+                                                        recognition.start()
+                                                } catch (e) {
+                                                        console.error('Could not restart WebKit speech recognition:', e)
+                                                }
+                                        }, 1000)
+                                }
+                        }
+
+                        try {
+                                recognition.start()
+                        } catch (e) {
+                                console.error('WebKit speech recognition failed to start:', e)
+                                setVoiceCommandFeedback("Couldn't start voice recognition. Try typing your command.")
+                        }
+                } else {
+                        setVoiceCommandFeedback("WebKit voice recognition not supported in this browser. Please type your commands.")
+                }
+
+                return () => {
+                        if (recognition) {
+                                try {
+                                        recognition.stop()
+                                } catch (e) {
+                                        console.error('Could not stop WebKit speech recognition:', e)
+                                }
+                        }
+                }
+        }, [voiceCommandActive])
+
+        // The rest of the component remains unchanged
         return (
                 <>
                         {/* Floating Action Buttons */}
@@ -138,7 +272,7 @@ export default function EmergencyActions({ showEvacuationRoute = false, setShowE
                                                                         Follow the highlighted path to the nearest shelter (1.2 miles away)
                                                                 </p>
                                                         </div>
-                                                        <button onClick={() => setEvacuationActive(false)} className="rounded-full p-1 hover:bg-blue-700">
+                                                        <button onClick={() => setShowEvacuationRoute(false)} className="rounded-full p-1 hover:bg-blue-700">
                                                                 <X className="h-5 w-5 text-blue-200" />
                                                         </button>
                                                 </div>
@@ -156,24 +290,47 @@ export default function EmergencyActions({ showEvacuationRoute = false, setShowE
                                                 className="fixed bottom-24 left-0 right-0 z-30 mx-auto w-full max-w-sm rounded-lg bg-purple-600 p-4 shadow-lg md:bottom-8"
                                         >
                                                 <div className="flex items-start">
-                                                        <Mic className="mr-3 h-6 w-6 animate-pulse text-white" />
+                                                        <Mic className={`mr-3 h-6 w-6 ${listening ? "animate-pulse" : ""} text-white`} />
                                                         <div className="flex-1">
-                                                                <h3 className="font-bold text-white">Listening...</h3>
-                                                                <p className="text-sm text-purple-100">Say a command like "Report fire" or "Find shelter"</p>
+                                                                <h3 className="font-bold text-white">{listening ? "Listening..." : "Voice Command"}</h3>
+                                                                <p className="text-sm text-purple-100">
+                                                                        {voiceCommandFeedback || "Say a command like 'Show evacuation route' or 'Report fire'"}
+                                                                </p>
                                                         </div>
                                                         <button onClick={() => setVoiceCommandActive(false)} className="rounded-full p-1 hover:bg-purple-700">
                                                                 <X className="h-5 w-5 text-purple-200" />
                                                         </button>
                                                 </div>
-                                                <div className="mt-3 flex">
+                                                <form onSubmit={handleCommandSubmit} className="mt-3 flex">
                                                         <input
                                                                 type="text"
+                                                                value={voiceCommand}
+                                                                onChange={(e) => setVoiceCommand(e.target.value)}
                                                                 className="flex-1 rounded-l-md bg-purple-700 p-2 text-white placeholder-purple-300 focus:outline-none"
                                                                 placeholder="Type a command..."
                                                         />
-                                                        <button className="rounded-r-md bg-purple-800 px-3 text-white hover:bg-purple-900">
+                                                        <button
+                                                                type="submit"
+                                                                className="rounded-r-md bg-purple-800 px-3 text-white hover:bg-purple-900"
+                                                        >
                                                                 <Send className="h-5 w-5" />
                                                         </button>
+                                                </form>
+
+                                                {/* Command suggestions */}
+                                                <div className="mt-3 flex flex-wrap gap-2">
+                                                        {["Show route", "Report fire", "Send SOS", "Hide route"].map((cmd) => (
+                                                                <button
+                                                                        key={cmd}
+                                                                        onClick={() => {
+                                                                                setVoiceCommand(cmd)
+                                                                                executeVoiceCommand(cmd)
+                                                                        }}
+                                                                        className="rounded-full bg-purple-700 px-3 py-1 text-xs text-white hover:bg-purple-800"
+                                                                >
+                                                                        {cmd}
+                                                                </button>
+                                                        ))}
                                                 </div>
                                         </motion.div>
                                 )}
@@ -184,11 +341,15 @@ export default function EmergencyActions({ showEvacuationRoute = false, setShowE
                                 <div className="flex items-center justify-around">
                                         {[
                                                 { icon: <MapPin className="h-5 w-5" />, label: "Map" },
-                                                { icon: <AlertCircle className="h-5 w-5" />, label: "SOS" },
-                                                { icon: <Navigation className="h-5 w-5" />, label: "Routes" },
-                                                { icon: <Mic className="h-5 w-5" />, label: "Voice" },
+                                                { icon: <AlertCircle className="h-5 w-5" />, label: "SOS", onClick: () => setSosModalOpen(true) },
+                                                { icon: <Navigation className="h-5 w-5" />, label: "Routes", onClick: () => setShowEvacuationRoute(!showEvacuationRoute) },
+                                                { icon: <Mic className="h-5 w-5" />, label: "Voice", onClick: () => setVoiceCommandActive(true) },
                                         ].map((item, index) => (
-                                                <button key={index} className="flex flex-1 flex-col items-center justify-center py-3">
+                                                <button
+                                                        key={index}
+                                                        className="flex flex-1 flex-col items-center justify-center py-3"
+                                                        onClick={item.onClick}
+                                                >
                                                         <div className="text-white">{item.icon}</div>
                                                         <span className="mt-1 text-xs text-gray-300">{item.label}</span>
                                                 </button>
@@ -198,4 +359,3 @@ export default function EmergencyActions({ showEvacuationRoute = false, setShowE
                 </>
         )
 }
-
